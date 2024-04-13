@@ -78,5 +78,4 @@ func checkError(e error) {
 	if e != nil && e != io.EOF {
 		log.Fatal(e)
 	}
-
 }
