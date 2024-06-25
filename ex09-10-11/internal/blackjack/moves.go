@@ -19,18 +19,45 @@ func MoveHit(g *Game) error {
 }
 
 func MoveStand(g *Game) error {
-	g.state++
-	return nil
+	if g.state == DealerTurn {
+		g.state++
+		return nil
+	}
+	if g.state == PlayerTurn {
+		g.handIdx++
+		if g.handIdx >= len(g.player) {
+			g.state++
+		}
+		return nil
+	}
+	return errors.New("invalid state")
 }
 
 // MoveDoubleDown doubles the player bet, hits and imediataly stands
 func MoveDoubleDown(g *Game) error {
-	if len(g.player) != 2 {
-		return errors.New("")
+	if len(*g.currentHand()) != 2 {
+		return errors.New("can only double with exactly two cards")
 	}
-	g.playerBet *= 2
+	g.player[g.handIdx].bet *= 2
 	MoveHit(g)
 	return MoveStand(g)
 }
 
-func MoveSplit(g *Game) error { return nil }
+func MoveSplit(g *Game) error {
+	cHand := g.currentHand()
+	if len(*cHand) != 2 {
+		return errors.New("can you split with exactly two cards in your hand")
+	}
+
+	if (*cHand)[0].Value != (*cHand)[1].Value {
+		return errors.New("both cards must have the same value")
+	}
+
+	g.player = append(g.player, hand{
+		cards: []deck.Card{(*cHand)[1]},
+		bet:   g.player[g.handIdx].bet,
+	})
+	g.player[g.handIdx].cards = (*cHand)[:1]
+
+	return nil
+}
