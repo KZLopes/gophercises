@@ -73,7 +73,6 @@ func (g *Game) Play(ai AI) int {
 	for i := 0; i < g.nHands; i++ {
 		shuffled := false
 		if len(g.deck) <= g.reshuffleTh {
-			fmt.Println("The deck was just shuffled.")
 			g.deck = deck.New(deck.Decks(g.nDecks), deck.Shuffle)
 			shuffled = true
 		}
