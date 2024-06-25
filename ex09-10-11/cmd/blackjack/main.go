@@ -7,10 +7,27 @@ import (
 	"slices"
 )
 
-type basicAI struct{}
+type basicAI struct {
+	score int
+	seen  int
+	decks int
+}
 
-func (ai *basicAI) Bet(_ bool) int {
-	return 100
+func (ai *basicAI) Bet(shuffled bool) int {
+	if shuffled {
+		ai.score = 0
+		ai.seen = 0
+	}
+
+	trueScore := ai.score / ((ai.decks*51 - ai.seen) / 52)
+	switch {
+	case trueScore >= 14:
+		return 10000
+	case trueScore >= 8:
+		return 500
+	default:
+		return 100
+	}
 }
 
 func (ai *basicAI) Play(hand []deck.Card, dealer deck.Card) blackjack.Move {
@@ -39,9 +56,26 @@ func (ai *basicAI) Play(hand []deck.Card, dealer deck.Card) blackjack.Move {
 	return blackjack.MoveStand
 }
 
-func (ai *basicAI) Results(hand [][]deck.Card, dealer []deck.Card) {
-	//TODO: Implement when countign cards
-	// Noop (for now)
+func (ai *basicAI) Results(hands [][]deck.Card, dealer []deck.Card) {
+	for _, card := range dealer {
+		ai.count(card)
+	}
+	for _, hand := range hands {
+		for _, card := range hand {
+			ai.count(card)
+		}
+	}
+}
+
+func (ai *basicAI) count(card deck.Card) {
+	score := blackjack.Score(card)
+	switch {
+	case score >= 10:
+		ai.score--
+	case score <= 6:
+		ai.score++
+	}
+	ai.seen++
 }
 
 func main() {
@@ -53,6 +87,6 @@ func main() {
 	})
 
 	// winings := game.Play(blackjack.NewHumanAI())
-	winings := game.Play(&basicAI{})
+	winings := game.Play(&basicAI{decks: 4})
 	fmt.Println(winings)
 }
