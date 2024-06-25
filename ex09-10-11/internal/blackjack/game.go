@@ -14,10 +14,6 @@ const (
 	Resolution
 )
 
-var (
-	errBust error
-)
-
 type hand struct {
 	cards []deck.Card
 	bet   int
@@ -43,19 +39,20 @@ type Game struct {
 	initialBet int
 	balance    int
 
-	dealer []deck.Card
+	dealerAI dealerAI
+	dealer   []deck.Card
 }
 
 func New(o GameOptions) Game {
 	if o.Decks < 1 {
-		o.Decks = 3
+		o.Decks = 4
 	}
 	if o.Hands < 1 {
-		o.Hands = 100
+		o.Hands = 100000
 	}
 
 	if o.BlackjackPayout < 1.0 {
-		o.BlackjackPayout = 1.5
+		o.BlackjackPayout = 1.0
 	}
 
 	return Game{
@@ -65,10 +62,11 @@ func New(o GameOptions) Game {
 		balance:         0,
 		blackjackPayout: o.BlackjackPayout,
 		reshuffleTh:     52 * o.Decks / 3,
+		dealerAI:        defaultDealer{},
 	}
 }
 
-func (g *Game) Play(ai AI) int {
+func (g *Game) Play(ai PlayerAI) int {
 	g.deck = nil
 	for i := 0; i < g.nHands; i++ {
 		shuffled := false
@@ -85,29 +83,24 @@ func (g *Game) Play(ai AI) int {
 
 		for g.state == PlayerTurn {
 			hand := make([]deck.Card, len(*g.currentHand()))
-			// hand := make([]hand, len(g.player))
 			copy(hand, *g.currentHand())
 			move := ai.Play(hand, g.dealer[0])
 			err := move(g)
 			switch err {
 			case errBust:
 				MoveStand(g)
-			case nil:
+			case errSplit, nil:
 				// Noop
 			default:
 				panic(err)
 			}
-
 		}
 
-		dScore := Score(g.dealer...)
 		for g.state == DealerTurn {
-			if dScore <= 16 || (dScore == 17 && Soft(g.dealer...)) {
-				MoveHit(g)
-				dScore = Score(g.dealer...)
-			} else {
-				MoveStand(g)
-			}
+			hand := make([]deck.Card, len(g.dealer))
+			copy(hand, g.dealer)
+			move := g.dealerAI.pickMove(hand)
+			move(g)
 		}
 
 		endRound(g, ai)
@@ -127,7 +120,7 @@ func (g *Game) currentHand() *[]deck.Card {
 	}
 }
 
-func bet(g *Game, ai AI, shuffled bool) {
+func bet(g *Game, ai PlayerAI, shuffled bool) {
 	pBet := ai.Bet(shuffled)
 	if pBet < 100 {
 		fmt.Println("bet must be atleast 100")
@@ -158,14 +151,14 @@ func deal(g *Game) {
 	g.state = PlayerTurn
 }
 
-func endRound(g *Game, ai AI) {
+func endRound(g *Game, ai PlayerAI) {
 	dScore, dBlackjack := Score(g.dealer...), Blackjack(g.dealer...)
 	allPHands := make([][]deck.Card, len(g.player))
 	for hIdx, hand := range g.player {
 		cards := hand.cards
 		allPHands[hIdx] = cards
-		winnings := hand.bet
 		pScore, pBlackjack := Score(hand.cards...), Blackjack(hand.cards...)
+		winnings := hand.bet
 		switch {
 		case pBlackjack && dBlackjack:
 			winnings = 0
@@ -176,7 +169,7 @@ func endRound(g *Game, ai AI) {
 		case pScore > 21:
 			winnings = -winnings
 		case dScore > 21:
-			// win
+			// win (dealer busted)
 		case pScore > dScore:
 			// win
 		case dScore > pScore:

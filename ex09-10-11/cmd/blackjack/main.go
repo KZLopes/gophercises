@@ -19,7 +19,7 @@ func (ai *basicAI) Bet(shuffled bool) int {
 		ai.seen = 0
 	}
 
-	trueScore := ai.score / ((ai.decks*51 - ai.seen) / 52)
+	trueScore := ai.score / ((ai.decks*52 - ai.seen) / 52)
 	switch {
 	case trueScore >= 14:
 		return 10000
@@ -70,10 +70,10 @@ func (ai *basicAI) Results(hands [][]deck.Card, dealer []deck.Card) {
 func (ai *basicAI) count(card deck.Card) {
 	score := blackjack.Score(card)
 	switch {
-	case score >= 10:
-		ai.score--
 	case score <= 6:
 		ai.score++
+	case score >= 10:
+		ai.score--
 	}
 	ai.seen++
 }
@@ -89,4 +89,5 @@ func main() {
 	// winings := game.Play(blackjack.NewHumanAI())
 	winings := game.Play(&basicAI{decks: 4})
 	fmt.Println(winings)
+
 }

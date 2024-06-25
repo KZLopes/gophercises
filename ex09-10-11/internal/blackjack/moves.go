@@ -3,6 +3,7 @@ package blackjack
 import (
 	"errors"
 	"ex09-10-11/pkg/deck"
+	"fmt"
 )
 
 type Move func(*Game) error
@@ -46,11 +47,13 @@ func MoveDoubleDown(g *Game) error {
 func MoveSplit(g *Game) error {
 	cHand := g.currentHand()
 	if len(*cHand) != 2 {
-		return errors.New("can you split with exactly two cards in your hand")
+		fmt.Println("can only split with exactly two cards in your hand")
+		return errSplit
 	}
 
 	if (*cHand)[0].Value != (*cHand)[1].Value {
-		return errors.New("both cards must have the same value")
+		fmt.Println("to split, both cards must have the same value")
+		return errSplit
 	}
 
 	g.player = append(g.player, hand{
