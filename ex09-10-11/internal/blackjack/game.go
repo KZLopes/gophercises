@@ -14,6 +14,10 @@ const (
 	Resolution
 )
 
+var (
+	errBust error
+)
+
 type GameOptions struct {
 	Decks           int
 	Hands           int
@@ -69,12 +73,7 @@ func (g *Game) Play(ai AI) int {
 		}
 		bet(g, ai, shuffled)
 		deal(g)
-		if Blackjack(g.dealer...) {
-			endHand(g, ai)
-			continue
-		}
-
-		if Blackjack(g.player...) {
+		if Blackjack(g.dealer...) || Blackjack(g.player...) {
 			endHand(g, ai)
 			continue
 		}
@@ -83,7 +82,16 @@ func (g *Game) Play(ai AI) int {
 			hand := make([]deck.Card, len(g.player))
 			copy(hand, g.player)
 			move := ai.Play(hand, g.dealer[0])
-			move(g)
+			err := move(g)
+			switch err {
+			case errBust:
+				MoveStand(g)
+			case nil:
+				// Noop
+			default:
+				panic(err)
+			}
+
 		}
 
 		dScore := Score(g.dealer...)
@@ -166,6 +174,7 @@ func Blackjack(hand ...deck.Card) bool {
 	return len(hand) == 2 && Score(hand...) == 21
 }
 
+// Score takes a hand of cards and returns the best blackjack score possible.
 func Score(hand ...deck.Card) int {
 	soft := minScore(hand...)
 	if soft > 11 {
@@ -179,6 +188,7 @@ func Score(hand ...deck.Card) int {
 	return soft
 }
 
+// Soft retun true if the score of a hand is being counted with an Ace as 11 points.
 func Soft(hand ...deck.Card) bool {
 	minScore := minScore(hand...)
 	score := Score(hand...)
