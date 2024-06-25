@@ -23,7 +23,7 @@ func main() {
 	flag.IntVar(&numStories, "num_stories", 30, "the number of top stories to display")
 	flag.Parse()
 
-	tpl := template.Must(template.ParseFiles("./index.gohtml"))
+	tpl := template.Must(template.ParseFiles("./index.html"))
 
 	http.HandleFunc("/", handler(numStories, tpl))
 
