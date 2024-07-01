@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"main/internal/encrypt"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -25,7 +24,7 @@ func NewFileVault(encodingKey, filepath string) *FileVault {
 	return &FileVault{
 		encodingKey: encodingKey,
 		filepath:    filepath,
-		// keyValues:   make(map[string]string),
+		keyValues:   make(map[string]string),
 	}
 }
 
@@ -33,7 +32,7 @@ func (v *FileVault) Get(key string) (string, error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	err := v.loadKeyValues()
+	err := v.load()
 	if err != nil {
 		return "", err
 	}
@@ -50,77 +49,50 @@ func (v *FileVault) Set(key, value string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	err := v.loadKeyValues()
+	err := v.load()
 	if err != nil && err != errFileNotFound {
 		return err
 	}
 
 	v.keyValues[key] = value
-	err = v.saveKeyValues()
-	if err != nil {
-		return err
-	}
-	return nil
+	return v.save()
 }
 
-func (v *FileVault) loadKeyValues() error {
+func (v *FileVault) load() error {
 	if _, err := os.Stat(v.filepath); errors.Is(err, fs.ErrNotExist) {
-		v.keyValues = make(map[string]string)
 		return errFileNotFound
 	}
 	f, err := os.Open(v.filepath)
 	if err != nil {
-		return nil
+		return err
 	}
 	defer f.Close()
-
-	var sb strings.Builder
-	_, err = io.Copy(&sb, f)
+	r, err := encrypt.DecryptReader(v.encodingKey, f)
 	if err != nil {
 		return err
 	}
-	decryptedJSON, err := encrypt.Decrypt(v.encodingKey, sb.String())
-	if err != nil {
-		return err
-	}
-	r := strings.NewReader(decryptedJSON)
-	dec := json.NewDecoder(r)
-	err = dec.Decode(&v.keyValues)
-	if err != nil {
-		return err
-	}
-	return nil
+	return v.readKeyValues(r)
 }
 
-func (v *FileVault) saveKeyValues() error {
-	var sb strings.Builder
-
-	enc := json.NewEncoder(&sb)
-	err := enc.Encode(v.keyValues)
-	if err != nil {
-		return err
-	}
-
-	encryptedJSON, err := encrypt.Encrypt(v.encodingKey, sb.String())
-	if err != nil {
-		return err
-	}
-
+func (v *FileVault) save() error {
 	f, err := os.OpenFile(v.filepath, os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-
-	_, err = f.WriteString(encryptedJSON)
+	w, err := encrypt.EncryptWriter(v.encodingKey, f)
 	if err != nil {
 		return err
 	}
-	//
-	// 	err = os.WriteFile(v.filepath, []byte(encryptedJSON), 7001)
-	// 	if err != nil {
-	// 		return err
-	// 	}
+	return v.writeKeyValues(w)
+}
 
-	return nil
+func (v *FileVault) readKeyValues(r io.Reader) error {
+	dec := json.NewDecoder(r)
+	return dec.Decode(&v.keyValues)
+}
+
+func (v *FileVault) writeKeyValues(w io.Writer) error {
+	enc := json.NewEncoder(w)
+	return enc.Encode(v.keyValues)
 }
