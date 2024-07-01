@@ -5,19 +5,19 @@ import (
 	"main/internal/encrypt"
 )
 
-type Vault struct {
+type MemoryVault struct {
 	encodingKey string
 	keyValues   map[string]string
 }
 
-func NewMemoryVault(encodingKey string) Vault {
-	return Vault{
+func NewMemoryVault(encodingKey string) MemoryVault {
+	return MemoryVault{
 		encodingKey: encodingKey,
 		keyValues:   make(map[string]string),
 	}
 }
 
-func (v *Vault) Get(key string) (string, error) {
+func (v *MemoryVault) Get(key string) (string, error) {
 	hex, ok := v.keyValues[key]
 	if !ok {
 		return "", errors.New("secret: no value for given key")
@@ -32,7 +32,7 @@ func (v *Vault) Get(key string) (string, error) {
 
 }
 
-func (v *Vault) Set(key, value string) error {
+func (v *MemoryVault) Set(key, value string) error {
 	encryptedVal, err := encrypt.Encrypt(v.encodingKey, value)
 	if err != nil {
 		return err
